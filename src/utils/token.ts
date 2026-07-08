@@ -18,7 +18,7 @@ export const generateAccessToken = (
   options: SignOptions = {}
 ): string => {
   return jwt.sign(payload, accessSecret, {
-    expiresIn: accessExpiry || "15m",
+    expiresIn: accessExpiry || "7d",
     ...options,
   });
 };
@@ -28,7 +28,7 @@ export const generateRefreshToken = (
   options: SignOptions = {}
 ): string => {
   return jwt.sign(payload, refreshSecret, {
-    expiresIn: refreshExpiry || "7d",
+    expiresIn: refreshExpiry || "30d",
     ...options,
   });
 };
