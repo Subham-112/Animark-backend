@@ -1,10 +1,11 @@
 import Admin from "../models/admin.model";
 import { config } from "../config/config";
 import { User } from "../models/user.model";
-import { generateAccessToken } from "../utils/token"
+import { generateAccessToken } from "../utils/token";
 import jwt, { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { Seller } from "../models/seller.model";
+import { CookiesNames } from "../common/enum";
 
 const ROLES = ["admin", "guest", "seller", "user"] as const;
 export type Role = (typeof ROLES)[number];
@@ -26,8 +27,10 @@ export const authenticateToken = async (
   res: Response,
   next: NextFunction,
 ): Promise<any> => {
-  const accessToken = req.header("Authorization")?.replace("Bearer ", "");
-  const refreshToken = req.cookies?.refreshToken;
+  const accessToken =
+    req.cookies?.[CookiesNames.USER_ACCESS] ||
+    req.header("Authorization")?.replace("Bearer ", "");
+  const refreshToken = req.cookies?.[CookiesNames.USER_REFRESH];
 
   if (!accessToken) {
     return res
@@ -53,12 +56,11 @@ export const authenticateToken = async (
 
     const tokenRole: Role = isRole(decoded.role) ? decoded.role : "seller";
 
-    // For restaurant owners, verify account and status from DB
+    // For restaurant sellers, verify account and status from DB
     if (tokenRole === "seller") {
-      const owner =
-        await Seller.findById(subject).select("_id email status");
-      const isActive = owner?.status === "active";
-      if (!owner || !isActive) {
+      const seller = await Seller.findById(subject).select("_id email status");
+      const isActive = seller?.status === "active";
+      if (!seller || !isActive) {
         return res
           .status(401)
           .json({ status: false, message: "Invalid or inactive account." });
@@ -66,8 +68,8 @@ export const authenticateToken = async (
 
       (req as AuthenticatedRequest).user = {
         role: "seller",
-        _id: owner.id,
-        email: decoded.email ?? owner.email,
+        _id: seller.id,
+        email: decoded.email ?? seller.email,
         mobile: decoded.mobile,
       };
     } else {
@@ -95,12 +97,10 @@ export const authenticateToken = async (
           ? decodedRefresh.role
           : "seller";
         if (!subject) {
-          return res
-            .status(403)
-            .json({
-              status: false,
-              message: "Invalid refresh token (no subject).",
-            });
+          return res.status(403).json({
+            status: false,
+            message: "Invalid refresh token (no subject).",
+          });
         }
 
         const user = await getUserByRole(tokenRole, subject);
@@ -124,6 +124,14 @@ export const authenticateToken = async (
           role: tokenRole,
           email: user.email,
         };
+
+        res.cookie(CookiesNames.USER_ACCESS, newAccessToken, {
+          httpOnly: true,
+          secure: config.env === "production",
+          sameSite: config.env === "production" ? "none" : "lax",
+          maxAge: config.jwt.accessMaxAge * 60 * 1000,
+          path: "/",
+        });
 
         return next();
       } catch {
