@@ -23,11 +23,12 @@ export const config = {
   },
 
   jwt: {
-    maxAge: Number(process.env.MAX_AGE!) || 7,
+    accessMaxAge: Number(process.env.ACCESS_MAX_AGE!) || 7,
+    refreshMaxAge: Number(process.env.REFRESH_MAX_AGE!) || 30,
     secret: process.env.JWT_SECRET!,
-    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
     refreshSecret: process.env.REFRESH_TOKEN_SECRET!,
-    refreshExpiresIn: process.env.REFRESH_EXPIRES_IN || "7d",
+    refreshExpiresIn: process.env.REFRESH_EXPIRES_IN || "30d",
   },
 
   security: {
@@ -36,4 +37,18 @@ export const config = {
     rateLimitEnabled: toBool(process.env.RATE_LIMIT_ENABLED),
     rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60000), // 1 minute window
   },
+
+  resend: {
+    api: process.env.RESEND_API_KEY || "",
+    from: process.env.EMAIL_FROM || "",
+  },
+
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+  },
+
+  client: {
+    url: process.env.CLIENT_URL
+  }
 };
