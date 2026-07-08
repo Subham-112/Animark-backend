@@ -5,6 +5,8 @@ import { logger } from "./config/logger";
 import { ipBlocker } from "./config/ipBlocker";
 import { config } from "./config/config";
 import { corsOptions } from "./middleware/corsMiddleware";
+import apiRoutes from "./routes/index";
+import { globalErrorHandler } from "./middleware/errorHandler";
 
 export const app = express();
 app.use(ipBlocker);
@@ -45,3 +47,6 @@ app.use(
 app.get("/", (_, res) => {
   res.send("Marketplace API Running 🚀");
 });
+
+app.use("/api", apiRoutes);
+app.use(globalErrorHandler);
