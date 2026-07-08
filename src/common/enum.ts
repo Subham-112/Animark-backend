@@ -32,3 +32,29 @@ export enum SellerStatus {
   ACTIVE = "active",
   SUSPENDED = "suspended",
 }
+
+export enum UserStatus {
+  ACTIVE = "active",
+  INACTIVE = "inactive",
+  SUSPENDED = "suspended",
+  DEACTIVATED = "deactivated",
+  PENDING_VERIFICATION = "pending_verification",
+}
+
+export enum Gender {
+  MALE = "male",
+  OTHER = "other",
+  FEMALE = "female",
+  PREFER_NOT_TO_SAY = "prefer_not_to_say",
+}
+
+export enum OtpPurpose {
+  REGISTER = "register",
+  LOGIN = "login",
+  FORGOT_PASSWORD = "forgot_password"
+}
+
+export enum CookiesNames {
+  USER_ACCESS = "user_access",
+  USER_REFRESH = "user_refresh"
+}
