@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon src/server.ts",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "nodemon dist/server.js",
     "typecheck": "tsc --noEmit"
@@ -23,13 +23,17 @@
   "homepage": "https://github.com/Subham-112/Animark-backend#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.79.3",
     "colors": "^1.4.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.3",
+    "mongoose-delete": "^1.0.7",
     "nodemon": "^3.1.14",
+    "resend": "^6.17.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {
@@ -37,6 +41,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/mongoose-delete": "^1.0.6",
     "@types/node": "^26.1.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
