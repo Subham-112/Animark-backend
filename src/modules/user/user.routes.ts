@@ -1,9 +1,11 @@
-import { Router } from "express";
-import { login, register, verifyEmail } from "./user.controller";
+import { Request, Router } from "express";
+import { login, register, updateProfile, verifyEmail } from "./user.controller";
 import {
   authenticateToken,
   authorize,
 } from "../../middleware/authMiddleware";
+import { uploadImage } from "../../middleware/upload.middleware";
+import { getAuthUser } from "../../utils/AuthUser";
 
 const router = Router();
 
@@ -29,6 +31,18 @@ const userAccess = [
   authenticateToken,
   authorize("user"),
 ];
+
+router.patch(
+  "/profile",
+  ...userAccess,
+  uploadImage({
+    folder: (req: Request) => {
+      const authUser = getAuthUser(req);
+      return `user/avatar/${authUser._id}`;
+    },
+  }),
+  updateProfile,
+);
 
 // router.post(
 //   "/logout",

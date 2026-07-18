@@ -160,3 +160,20 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 //   const result = await AuthService.me(req);
 //   return res.status(200).json(result);
 // });
+
+/**
+ * Update user's profile
+ */
+export const updateProfile = asyncHandler(
+  async (req: Request, res: Response) => {
+    const authUser = getAuthUser(req);
+
+    const response = await UserService.updateProfile(
+      authUser._id,
+      req.body,
+      (req as any).uploadedFile,
+    );
+
+    return res.status(response.statusCode).json(response);
+  },
+);

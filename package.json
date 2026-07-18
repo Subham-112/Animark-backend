@@ -24,6 +24,7 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "bullmq": "^5.79.3",
+    "cloudinary": "^2.10.0",
     "colors": "^1.4.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -32,8 +33,10 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.3",
     "mongoose-delete": "^1.0.7",
+    "multer": "^2.2.0",
     "nodemon": "^3.1.14",
     "resend": "^6.17.1",
+    "streamifier": "^0.1.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {
@@ -42,7 +45,9 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose-delete": "^1.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.1.0",
+    "@types/streamifier": "^0.1.2",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.3"

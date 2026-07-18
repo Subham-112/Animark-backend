@@ -1,4 +1,4 @@
-import { User } from "../../models/user.model";
+import { IUser, User } from "../../models/user.model";
 import {
   UserLoginPayload,
   UserRegisterPayload,
@@ -17,6 +17,8 @@ import { welcomeUserTemplate } from "../../services/email/templates/welcome.user
 import validator from "../../utils/validator/auth.validator";
 import { generateAccessToken, generateRefreshToken } from "../../utils/token";
 import { Response } from "express";
+import { UploadedImage } from "../../services/cloudinary/cloudinary.types";
+import cloudinaryService from "../../services/cloudinary/cloudinary.service";
 
 export const UserService = {
   /**
@@ -264,4 +266,50 @@ export const UserService = {
    * Logged In User
    */
   async me(req: any) {},
+
+  /**
+   * Update User's profile
+   */
+  async updateProfile(
+    userId: string,
+    payload: Partial<IUser>,
+    uploadedFile?: UploadedImage,
+  ) {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new ApiError(404, "User not found.");
+    }
+
+    // Delete previous avatar if new one uploaded
+    if (uploadedFile) {
+      if (user.avatar?.publicId) {
+        await cloudinaryService.deleteImage(user.avatar.publicId);
+      }
+
+      user.avatar = {
+        url: uploadedFile.url,
+        key: uploadedFile.publicId,
+        name: uploadedFile.publicId.split("/").pop(),
+        size: uploadedFile.bytes,
+        mimetype: `image/${uploadedFile.format}`,
+      };
+    }
+
+    if (payload.firstName !== undefined) {
+      user.firstName = payload.firstName;
+    }
+
+    if (payload.lastName !== undefined) {
+      user.lastName = payload.lastName;
+    }
+
+    if (payload.dateOfBirth !== undefined) {
+      user.dateOfBirth = payload.dateOfBirth;
+    }
+
+    await user.save();
+
+    return new ApiResponse(200, user, "Profile updated successfully.");
+  },
 };
