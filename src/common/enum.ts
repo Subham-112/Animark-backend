@@ -56,5 +56,13 @@ export enum OtpPurpose {
 
 export enum CookiesNames {
   USER_ACCESS = "user_access",
-  USER_REFRESH = "user_refresh"
+  USER_REFRESH = "user_refresh",
+  SELLER_ACCESS = "seller_access",
+  SELLER_REFRESH = "seller_refresh"
+}
+
+export enum Roles {
+  USER = "user",
+  SELLER = "seller",
+  ADMIN = "admin"
 }

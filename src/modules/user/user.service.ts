@@ -10,7 +10,7 @@ import { comparePassword, hashPassword } from "../../utils/password";
 import addEmailJob from "../../jobs/producers/email.producer";
 import { otpTemplate } from "../../services/email/templates/otp.template";
 import Otp from "../../models/otp.model";
-import { CookiesNames, OtpPurpose, UserStatus } from "../../common/enum";
+import { CookiesNames, OtpPurpose, Roles, UserStatus } from "../../common/enum";
 import { config } from "../../config/config";
 import { generateOtp } from "../../utils/otp";
 import { welcomeUserTemplate } from "../../services/email/templates/welcome.user.template";
@@ -60,7 +60,7 @@ export const UserService = {
       data: {
         firstName,
         lastName,
-        role: "user",
+        role: Roles.USER,
         password: hashedPassword,
       },
     });
