@@ -11,6 +11,18 @@ export interface UserLoginPayload {
 }
 
 export interface VerifyEmailPayload {
-    email: string;
-    otp: string;
+  email: string;
+  otp: string;
+}
+
+export interface SellerRegisterPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+export interface SellerLoginPayload {
+  email: string;
+  password: string;
 }
