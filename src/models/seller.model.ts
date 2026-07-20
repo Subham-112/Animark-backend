@@ -74,6 +74,7 @@ export interface ISeller extends Document, ISoftDeleteDocument {
   fcmTokens?: string[];
   phone: string;
   refreshToken?: string;
+  password: string;
 
   bankDetails?: IBankDetails; // ✅ optional
   upiDetails?: IUpiDetails;
@@ -150,7 +151,12 @@ const SellerSchema = new Schema<ISeller>(
       required: true,
       lowercase: true,
     },
-    phone: { type: String, required: true },
+    phone: { type: String },
+    password: {
+      type: String,
+      required: true,
+      select: false,
+    },
 
     bankDetails: {
       type: BankDetailsSchema,
