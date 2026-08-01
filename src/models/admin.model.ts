@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import mongoose, { Schema, Document } from "mongoose";
+import { CommonStatus } from "../common/enum";
 
 /**
  * Admin Schema for token-based auth
@@ -13,7 +14,7 @@ export interface IAdmin extends Document {
   email: string;
   createdAt: Date;
   updatedAt: Date;
-  status: Boolean;
+  status: CommonStatus;
   username: string;
   password: string;
   refreshToken: string;
@@ -24,7 +25,12 @@ export interface IAdmin extends Document {
 const adminSchema = new Schema<IAdmin>(
   {
     refreshToken: { type: String },
-    status: { type: Boolean, default: true },
+    status: {
+      type: String,
+      enum: Object.values(CommonStatus),
+      default: CommonStatus.ACTIVE,
+      index: true,
+    },
     password: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     username: { type: String, required: true, unique: true },
