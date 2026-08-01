@@ -10,6 +10,7 @@ import { comparePassword, hashPassword } from "../../utils/password";
 import addEmailJob from "../../jobs/producers/email.producer";
 import { otpTemplate } from "../../services/email/templates/otp.template";
 import Otp from "../../models/otp.model";
+import { Seller } from "../../models/seller.model";
 import { CookiesNames, OtpPurpose, Roles, UserStatus } from "../../common/enum";
 import { config } from "../../config/config";
 import { generateOtp } from "../../utils/otp";
@@ -138,7 +139,7 @@ export const UserService = {
       httpOnly: true,
       secure: config.env === "production",
       sameSite: config.env === "production" ? "none" : "lax",
-      maxAge: config.jwt.accessMaxAge * 60 * 1000,
+      maxAge: config.jwt.accessMaxAge * 24 * 60 * 1000,
       path: "/",
     });
 
@@ -147,6 +148,14 @@ export const UserService = {
       secure: config.env === "production",
       sameSite: config.env === "production" ? "none" : "lax",
       maxAge: config.jwt.refreshMaxAge * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
+    res.cookie("is_authenticated", "true", {
+      httpOnly: false, // <-- Crucial: Allows JS / document.cookie access!
+      secure: config.env === "production",
+      sameSite: config.env === "production" ? "none" : "lax",
+      maxAge: config.jwt.refreshMaxAge * 24 * 60 * 60 * 1000, // Match refresh token duration
       path: "/",
     });
 
@@ -266,6 +275,50 @@ export const UserService = {
    * Logged In User
    */
   async me(req: any) {},
+
+  /**
+   * Get Current User Details
+   */
+  async currentUser(userId: string) {
+    const user = await User.findById(userId).select(
+      "firstName lastName email mobile avatar status isSeller",
+    );
+
+    if (!user) {
+      throw new ApiError(404, "User not found.");
+    }
+
+    const userData: any = {
+      id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      mobile: user.mobile,
+      avatar: user.avatar,
+      status: user.status,
+      isSeller: user.isSeller,
+    };
+
+    if (user.isSeller) {
+      const seller = await Seller.findOne({ user: userId });
+      if (seller) {
+        userData.seller = {
+          id: seller._id,
+          displayName: seller.displayName,
+          bio: seller.bio,
+          image: seller.image,
+          sellerStatus: seller.status,
+          socialLinks: seller.socialLinks,
+        };
+      }
+    }
+
+    return new ApiResponse(
+      200,
+      userData,
+      "Current user profile fetched successfully.",
+    );
+  },
 
   /**
    * Update User's profile

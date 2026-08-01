@@ -8,22 +8,14 @@ import {
   ISoftDeleteDocument,
   ISoftDeleteModel,
 } from "../types/softDelete.types";
-import { Gender, UserStatus } from "../common/enum";
+import { UserStatus } from "../common/enum";
+import { IImage, ImageSchema } from "../common/image.schema";
 
 /* ------------------- Interface ------------------- */
-interface IUserAvatar {
-  url: string;
-  key: string;
-  name?: string;
-  size: number;
-  mimetype: string;
-  publicId?: string;
-}
-
 export interface IUser extends Document, ISoftDeleteDocument {
   email: string;
   mobile?: string;
-  avatar?: IUserAvatar;
+  avatar?: IImage;
   lastName: string;
   firstName: string;
   countryCode: string;
@@ -52,19 +44,11 @@ export interface IUser extends Document, ISoftDeleteDocument {
 
   // Optional
   dateOfBirth?: Date;
+  isSeller: boolean;
 
   // Methods
   generateJWT(): string;
 }
-
-const AvatarSchema = new Schema<IUserAvatar>({
-  url: { type: String },
-  key: { type: String },
-  name: { type: String },
-  size: { type: Number },
-  mimetype: { type: String },
-  publicId: { type: String },
-});
 
 const UserSchema = new Schema<IUser>(
   {
@@ -77,7 +61,7 @@ const UserSchema = new Schema<IUser>(
       lowercase: true,
     },
     mobile: { type: String },
-    avatar: { type: AvatarSchema },
+    avatar: { type: ImageSchema },
     password: {
       type: String,
       required: true,
@@ -115,6 +99,7 @@ const UserSchema = new Schema<IUser>(
 
     // Optional
     dateOfBirth: Date,
+    isSeller: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

@@ -133,33 +133,43 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
     refreshToken: null,
   });
 
-  res.clearCookie(CookiesNames.USER_ACCESS, {
-    httpOnly: true,
+  const cookieOptions = {
     secure: config.env === "production",
-    sameSite: config.env === "production" ? "none" : "lax",
+    sameSite: (config.env === "production" ? "none" : "lax") as "none" | "lax",
     path: "/",
-  });
-
-  res.clearCookie(CookiesNames.USER_REFRESH, {
-    httpOnly: true,
-    secure: config.env === "production",
-    sameSite: config.env === "production" ? "none" : "lax",
-    path: "/",
-  });
-
-  return {
-    success: true,
-    message: "Logged out successfully.",
   };
+
+  // 1. Clear HttpOnly Access Token
+  res.clearCookie(CookiesNames.USER_ACCESS, {
+    ...cookieOptions,
+    httpOnly: true,
+  });
+
+  // 2. Clear HttpOnly Refresh Token
+  res.clearCookie(CookiesNames.USER_REFRESH, {
+    ...cookieOptions,
+    httpOnly: true,
+  });
+
+  // 3. Clear Client-Readable Indicator Cookie
+  res.clearCookie("is_authenticated", {
+    ...cookieOptions,
+    httpOnly: false, // Matches how it was set!
+  });
+
+  return res.status(200).json({ success: true, message: "Logout Successfull" });
 });
 
 /**
  * Get Logged In User
  */
-// export const me = asyncHandler(async (req: Request, res: Response) => {
-//   const result = await AuthService.me(req);
-//   return res.status(200).json(result);
-// });
+export const getCurrentUser = asyncHandler(
+  async (req: Request, res: Response) => {
+    const authUser = getAuthUser(req);
+    const response = await UserService.currentUser(authUser._id);
+    return res.status(response.statusCode).json(response);
+  },
+);
 
 /**
  * Update user's profile

@@ -1,5 +1,5 @@
 import { Request, Router } from "express";
-import { login, register, updateProfile, verifyEmail } from "./user.controller";
+import { getCurrentUser, login, logout, register, updateProfile, verifyEmail } from "./user.controller";
 import {
   authenticateToken,
   authorize,
@@ -44,17 +44,17 @@ router.patch(
   updateProfile,
 );
 
-// router.post(
-//   "/logout",
-//   ...userAccess,
+router.post(
+  "/logout",
+  ...userAccess,
+  logout
+);
 
-// );
-
-// router.get(
-//   "/me",
-//   ...userAccess,
-  
-// );
+router.get(
+  "/get-current",
+  ...userAccess,
+  getCurrentUser
+);
 
 // Example
 // router.get("/profile", userAccess, AuthController.getProfile);
