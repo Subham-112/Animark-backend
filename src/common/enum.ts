@@ -28,8 +28,9 @@ export enum KycStatus {
 }
 
 export enum SellerStatus {
-  INACTIVE = "inactive",
+  PENDING = "pending",
   ACTIVE = "active",
+  INACTIVE = "inactive",
   SUSPENDED = "suspended",
 }
 
@@ -58,11 +59,28 @@ export enum CookiesNames {
   USER_ACCESS = "user_access",
   USER_REFRESH = "user_refresh",
   SELLER_ACCESS = "seller_access",
-  SELLER_REFRESH = "seller_refresh"
+  SELLER_REFRESH = "seller_refresh",
+  ADMIN_ACCESS = "admin_access",
+  ADMIN_REFRESH = "admin_refresh"
 }
 
 export enum Roles {
   USER = "user",
   SELLER = "seller",
   ADMIN = "admin"
+}
+
+export enum CommonStatus {
+  ACTIVE = "active",
+  INACTIVE = "inactive"
+}
+
+export enum ProductOwnerType {
+  OWNER = "owner",
+  SYSTEM = "system"
+}
+
+export enum LicenceType {
+  PERSONAL = "personal",
+  COMMERCIAL = "commercial"
 }

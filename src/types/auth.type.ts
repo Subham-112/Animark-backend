@@ -1,3 +1,5 @@
+import { IOwnerImage, ISocialLinks } from "../models/seller.model";
+
 export interface UserRegisterPayload {
   firstName: string;
   lastName: string;
@@ -15,14 +17,23 @@ export interface VerifyEmailPayload {
   otp: string;
 }
 
-export interface SellerRegisterPayload {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
+export interface SellerApplyPayload {
+  displayName: string;
+  bio?: string;
+
+  socialLinks: {
+    website?: string;
+    youtube?: string;
+    instagram?: string;
+    twitter?: string;
+    facebook?: string;
+  };
 }
 
-export interface SellerLoginPayload {
-  email: string;
-  password: string;
+
+export interface UpdateSellerProfilePayload {
+  displayName?: string;
+  bio?: string;
+  image?: IOwnerImage | null;
+  socialLinks?: Partial<ISocialLinks>;
 }

@@ -1,16 +1,14 @@
-import Admin from "../models/admin.model";
-import { config } from "../config/config";
-import { User } from "../models/user.model";
-import { generateAccessToken } from "../utils/token";
-import jwt, { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 import { Request, Response, NextFunction, RequestHandler } from "express";
-import { Seller } from "../models/seller.model";
+import jwt, { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
+import { User } from "../models/user.model";
+import { config } from "../config/config";
+import { generateAccessToken } from "../utils/token";
 import { CookiesNames } from "../common/enum";
 
 const ROLES = ["admin", "guest", "seller", "user"] as const;
 export type Role = (typeof ROLES)[number];
 
-interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends Request {
   user?: {
     role: Role;
     _id: string;
@@ -19,8 +17,22 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-const isRole = (val: unknown): val is Role =>
-  typeof val === "string" && ROLES.some((role) => role === val);
+// Cookie Helper Options
+const getCookieOptions = (maxAgeInMinutes: number) => ({
+  httpOnly: true,
+  secure: config.env === "production",
+  sameSite: (config.env === "production" ? "none" : "lax") as "none" | "lax",
+  maxAge: maxAgeInMinutes * 60 * 1000,
+  path: "/",
+});
+
+// Helper for Standardized Error Responses
+const sendError = (res: Response, statusCode: number, message: string) => {
+  return res.status(statusCode).json({
+    success: false,
+    message,
+  });
+};
 
 export const authenticateToken = async (
   req: Request,
@@ -30,123 +42,93 @@ export const authenticateToken = async (
   const accessToken =
     req.cookies?.[CookiesNames.USER_ACCESS] ||
     req.header("Authorization")?.replace("Bearer ", "");
+
   const refreshToken = req.cookies?.[CookiesNames.USER_REFRESH];
 
   if (!accessToken) {
-    return res
-      .status(401)
-      .json({ status: false, message: "Access token missing." });
+    return sendError(res, 401, "Access token missing.");
   }
 
   try {
     const decoded = jwt.verify(accessToken, config.jwt.secret) as {
       _id?: string;
-      role?: string;
-      email?: string;
-      mobile?: string;
-      sub?: string; // in case some tokens use `sub`
+      sub?: string;
     };
 
     const subject = decoded._id || decoded.sub;
-    if (!subject) {
-      return res
-        .status(401)
-        .json({ status: false, message: "Malformed token (missing subject)." });
+    if (!subject) return sendError(res, 401, "Malformed token.");
+
+    const user = await User.findById(subject).select("_id email mobile status");
+
+    if (!user || user.status !== "active") {
+      return sendError(res, 401, "Invalid or inactive account.");
     }
 
-    const tokenRole: Role = isRole(decoded.role) ? decoded.role : "seller";
-
-    // For restaurant sellers, verify account and status from DB
-    if (tokenRole === "seller") {
-      const seller = await Seller.findById(subject).select("_id email status");
-      const isActive = seller?.status === "active";
-      if (!seller || !isActive) {
-        return res
-          .status(401)
-          .json({ status: false, message: "Invalid or inactive account." });
-      }
-
-      (req as AuthenticatedRequest).user = {
-        role: "seller",
-        _id: seller.id,
-        email: decoded.email ?? seller.email,
-        mobile: decoded.mobile,
-      };
-    } else {
-      // For admin/user-or-system roles trust token; dedicated routes can run extra checks
-      (req as AuthenticatedRequest).user = {
-        role: tokenRole,
-        _id: subject,
-        email: decoded.email,
-        mobile: decoded.mobile,
-      };
-    }
+    (req as AuthenticatedRequest).user = {
+      _id: String(user._id),
+      role: "user",
+      email: user.email,
+      mobile: user.mobile,
+    };
 
     return next();
   } catch (err) {
-    // Try refresh-token path only if access token expired and we have a refresh token
+    // Attempt Token Refresh if Access Token Expired
     if (err instanceof TokenExpiredError && refreshToken) {
       try {
         const decodedRefresh = jwt.verify(
           refreshToken,
           config.jwt.refreshSecret,
-        ) as { _id?: string; role?: string; email?: string; sub?: string };
+        ) as { _id?: string; sub?: string };
 
         const subject = decodedRefresh._id || decodedRefresh.sub;
-        const tokenRole: Role = isRole(decodedRefresh.role)
-          ? decodedRefresh.role
-          : "seller";
-        if (!subject) {
-          return res.status(403).json({
-            status: false,
-            message: "Invalid refresh token (no subject).",
-          });
+        if (!subject) return sendError(res, 403, "Invalid refresh token.");
+
+        const user = await User.findById(subject);
+
+        // Security Check: Verify refresh token match AND user active status
+        if (
+          !user ||
+          user.refreshToken !== refreshToken ||
+          user.status !== "active"
+        ) {
+          return sendError(res, 403, "Invalid session or account inactive.");
         }
 
-        const user = await getUserByRole(tokenRole, subject);
-
-        if (!user || user.refreshToken !== refreshToken) {
-          return res
-            .status(403)
-            .json({ status: false, message: "Invalid refresh token." });
-        }
-
-        // Issue new access token
         const newAccessToken = generateAccessToken({
+          _id: String(user._id),
           email: user.email,
-          _id: user._id as string,
-          role: tokenRole,
+          role: "user",
         });
 
+        // Set Updated Cookies
         res.setHeader("Authorization", `Bearer ${newAccessToken}`);
+        res.cookie(
+          CookiesNames.USER_ACCESS,
+          newAccessToken,
+          getCookieOptions(config.jwt.accessMaxAge),
+        );
+
         (req as AuthenticatedRequest).user = {
           _id: String(user._id),
-          role: tokenRole,
+          role: "user",
           email: user.email,
+          mobile: user.mobile,
         };
-
-        res.cookie(CookiesNames.USER_ACCESS, newAccessToken, {
-          httpOnly: true,
-          secure: config.env === "production",
-          sameSite: config.env === "production" ? "none" : "lax",
-          maxAge: config.jwt.accessMaxAge * 60 * 1000,
-          path: "/",
-        });
 
         return next();
       } catch {
-        return res.status(401).json({
-          status: false,
-          message: "Session expired. Please log in again.",
-        });
+        return sendError(res, 401, "Session expired. Please log in again.");
       }
     }
 
-    const msg =
+    return sendError(
+      res,
+      401,
       err instanceof JsonWebTokenError
         ? "Invalid access token."
-        : "Invalid or expired access token.";
-    return res.status(401).json({ status: false, message: msg });
+        : "Invalid or expired access token.",
+    );
   }
 };
 
@@ -156,19 +138,14 @@ export const authorize =
     const user = (req as AuthenticatedRequest).user;
 
     if (!user) {
-      res.status(401).json({
-        success: false,
-        status: 401,
-        message: "Unauthorized. Please log in.",
-      });
+      sendError(res, 401, "Unauthorized. Please log in.");
       return;
     }
 
     if (!allowedRoles.includes(user.role)) {
       res.status(403).json({
         success: false,
-        status: 403,
-        message: `Forbidden: Your role '${user.role}' does not have permission to access this resource.`,
+        message: `Forbidden: Role '${user.role}' lacks required permissions.`,
         allowedRoles,
       });
       return;
@@ -176,15 +153,3 @@ export const authorize =
 
     return next();
   };
-
-// Map supported roles to their source models for refresh-token validation
-const getUserByRole = async (role: Role, id: string) => {
-  const modelMap: Partial<Record<Role, any>> = {
-    admin: Admin,
-    seller: Seller,
-    user: User,
-    guest: User,
-  };
-  const Model = modelMap[role];
-  return Model ? Model.findById(id) : null;
-};
