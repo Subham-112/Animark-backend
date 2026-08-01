@@ -1,228 +1,192 @@
-import { CookiesNames, OtpPurpose, Roles, SellerStatus } from "../../common/enum";
-import { config } from "../../config/config";
-import addEmailJob from "../../jobs/producers/email.producer";
-import Otp from "../../models/otp.model";
+import mongoose, { ClientSession } from "mongoose";
+import { SellerStatus } from "../../common/enum";
 import { Seller } from "../../models/seller.model";
-import { otpTemplate } from "../../services/email/templates/otp.template";
-import { welcomeSellerTemplate } from "../../services/email/templates/welcome.seller.template";
-import { welcomeUserTemplate } from "../../services/email/templates/welcome.user.template";
-import { SellerLoginPayload, SellerRegisterPayload, VerifyEmailPayload } from "../../types/auth.type";
+import { User } from "../../models/user.model";
 import ApiError from "../../utils/ApiError";
 import ApiResponse from "../../utils/ApiResponse";
-import { generateOtp } from "../../utils/otp";
-import { comparePassword, hashPassword } from "../../utils/password";
-import { generateAccessToken, generateRefreshToken } from "../../utils/token";
-import validator from "../../utils/validator/auth.validator";
-import { Response } from "express";
+import {
+  SellerApplyPayload,
+  UpdateSellerProfilePayload,
+} from "../../types/auth.type";
+
+export const generateUniqueSellerSlug = async (
+  displayName: string,
+  session: ClientSession,
+) => {
+  const baseSlug = displayName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  let slug = baseSlug;
+  let count = 1;
+
+  while (await Seller.findOne({ slug }).session(session)) {
+    slug = `${baseSlug}-${count++}`;
+  }
+
+  return slug;
+};
 
 export const SellerService = {
-  /**
-   * Register User
-   */
-  async register(payload: SellerRegisterPayload) {
-    const { firstName, lastName, email, password } = payload;
+  async apply(userId: string, payload: SellerApplyPayload) {
+    const session = await mongoose.startSession();
 
-    const normalizedEmail = email.trim().toLowerCase();
+    try {
+      session.startTransaction();
 
-    // Check if user already exists
-    const existingUser = await Seller.findOne({
-      email: normalizedEmail,
-    });
+      const { displayName, bio, socialLinks } = payload;
 
-    if (existingUser) {
-      throw new ApiError(409, "User already exists.");
+      const existingSeller = await Seller.findOne({
+        user: userId,
+      }).session(session);
+
+      if (existingSeller) {
+        throw new ApiError(
+          409,
+          "You have already submitted a seller application.",
+        );
+      }
+
+      const user = await User.findById(userId).session(session);
+
+      if (!user) {
+        throw new ApiError(404, "User not found.");
+      }
+
+      if (!user.isEmailVerified) {
+        throw new ApiError(
+          403,
+          "Please verify your email before applying as a seller.",
+        );
+      }
+
+      const slug = await generateUniqueSellerSlug(displayName, session);
+
+      const seller = await Seller.create(
+        [
+          {
+            user: user._id,
+            displayName: displayName.trim(),
+            slug,
+            bio: bio?.trim() || "",
+            socialLinks,
+            status: SellerStatus.PENDING,
+          },
+        ],
+        { session },
+      );
+
+      user.isSeller = true;
+      await user.save({ session });
+
+      await session.commitTransaction();
+
+      return new ApiResponse(
+        201,
+        seller[0],
+        "Seller application submitted successfully. Please wait for admin approval.",
+      );
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      await session.endSession();
     }
+  },
 
-    // Remove previous pending registration
-    await Otp.deleteMany({
-      email: normalizedEmail,
-      purpose: OtpPurpose.REGISTER,
-    });
+  async currentUser(userId: string) {
+    const seller = await Seller.findOne({ user: userId })
+      .populate({
+        path: "user",
+        select: "firstName lastName email mobile avatar",
+      })
+      .lean();
 
-    // Generate OTP
-    const otp = generateOtp();
-
-    // Hash password
-    const hashedPassword = await hashPassword(password);
-
-    // Save registration in OTP collection
-    await Otp.create({
-      email: normalizedEmail,
-      otp,
-      verified: false,
-      purpose: OtpPurpose.REGISTER,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      data: {
-        firstName,
-        lastName,
-        role: Roles.SELLER,
-        password: hashedPassword,
-      },
-    });
-
-    // Queue email
-    await addEmailJob({
-      to: normalizedEmail,
-      subject: "Verify your email",
-      html: otpTemplate({
-        name: firstName,
-        otp,
-        expiryMinutes: 10,
-      }),
-    });
-
-    const res: { email: string; otp?: string } = { email: normalizedEmail };
-    if (config.env === "dev") res.otp = otp;
+    if (!seller) {
+      return new ApiResponse(
+        200,
+        {
+          isSeller: false,
+        },
+        "Seller profile not found.",
+      );
+    }
 
     return new ApiResponse(
       200,
-      res,
-      "We've sent a verification OTP to your email address.",
+      {
+        isSeller: true,
+        seller: {
+          id: seller._id,
+          displayName: seller.displayName,
+          slug: seller.slug,
+          bio: seller.bio,
+          image: seller.image,
+          socialLinks: seller.socialLinks,
+          status: seller.status,
+          user: seller.user,
+          createdAt: seller.createdAt,
+          updatedAt: seller.updatedAt,
+        },
+      },
+      "Seller profile fetched successfully.",
     );
   },
 
-  /**
-   * Verify Email
-   */
-  async verifyEmail(payload: VerifyEmailPayload) {
-    const { email, otp } = payload;
+  async updateProfile(userId: string, payload: UpdateSellerProfilePayload) {
+    const seller = await Seller.findOne({ user: userId });
 
-    const normalizedEmail = email.trim().toLowerCase();
-
-    const otpDocument = await Otp.findOne({
-      email: normalizedEmail,
-      otp,
-      purpose: OtpPurpose.REGISTER,
-    });
-
-    if (!otpDocument) {
-      throw new ApiError(400, "Invalid OTP.");
+    if (!seller) {
+      throw new ApiError(404, "Seller profile not found.");
     }
 
-    if (otpDocument.verified) {
-      throw new ApiError(400, "OTP has already been verified.");
+    if (payload.displayName) {
+      seller.displayName = payload.displayName.trim();
     }
 
-    if (otpDocument.expiresAt < new Date()) {
-      throw new ApiError(400, "OTP has expired.");
+    if (payload.bio !== undefined) {
+      seller.bio = payload.bio.trim();
     }
 
-    const existingUser = await Seller.findOne({
-      email: normalizedEmail,
-    });
-
-    if (existingUser) {
-      throw new ApiError(409, "User already exists.");
+    if (payload.image !== undefined) {
+      seller.image = payload.image;
     }
 
-    const registrationData = otpDocument.data;
+    if (payload.socialLinks) {
+      seller.socialLinks = {
+        ...seller.socialLinks,
+        ...payload.socialLinks,
+      };
+    }
 
-    const user = await Seller.create({
-      firstName: registrationData.firstName,
-      lastName: registrationData.lastName,
-      email: normalizedEmail,
-      password: registrationData.password,
+    await seller.save();
 
-      isEmailVerified: true,
-      status: SellerStatus.ACTIVE,
-    });
-
-    await Otp.deleteOne({
-      _id: otpDocument._id,
-    });
-
-    await addEmailJob({
-      to: user.email,
-      subject: "Welcome to Animark",
-      html: welcomeSellerTemplate({
-        name: user.firstName,
-        dashboardUrl: `${config.client.url}/seller`,
-      }),
-    });
-
-    const res = {
-      id: user._id,
-      email: user.email,
-    };
-
-    return new ApiResponse(200, res, "Email verified successfully.");
+    return new ApiResponse(200, seller, "Seller profile updated successfully.");
   },
 
-  /**
-   * Login User
-   */
-  async login(payload: SellerLoginPayload, res: Response) {
-    const { email, password } = payload;
+  async getPublicProfile(slug: string) {
+    const seller = await Seller.findOne({
+      slug: slug.toLowerCase(),
+      status: SellerStatus.ACTIVE,
+    })
+      .populate({
+        path: "user",
+        select: "firstName lastName avatar",
+      })
+      .lean();
 
-    const normalizedEmail = validator.normalizeEmail(email);
-    const isValidEmail = validator.validateEmail(normalizedEmail);
-
-    if (!isValidEmail.isValid) {
-      throw new ApiError(400, isValidEmail.message);
+    if (!seller) {
+      throw new ApiError(404, "Seller not found.");
     }
 
-    const user = await Seller.findOne({
-      email: normalizedEmail,
-    }).select("+password +refreshToken");
-
-    if (!user) {
-      throw new ApiError(401, "Invalid email or password.");
-    }
-
-    if (!user.isEmailVerified) {
-      throw new ApiError(403, "Please verify your email before logging in.");
-    }
-
-    if (user.status !== SellerStatus.ACTIVE) {
-      throw new ApiError(403, "Your account is not active.");
-    }
-
-    const isPasswordMatched = await comparePassword(password, user.password);
-
-    if (!isPasswordMatched) {
-      throw new ApiError(401, "Invalid email or password.");
-    }
-
-    const tokenPayload = {
-      _id: String(user._id),
-      email: user.email,
-      role: "user",
-    };
-
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
-
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.cookie(CookiesNames.SELLER_ACCESS, accessToken, {
-      httpOnly: true,
-      secure: config.env === "production",
-      sameSite: config.env === "production" ? "none" : "lax",
-      maxAge: config.jwt.accessMaxAge * 60 * 1000,
-      path: "/",
-    });
-
-    res.cookie(CookiesNames.SELLER_REFRESH, refreshToken, {
-      httpOnly: true,
-      secure: config.env === "production",
-      sameSite: config.env === "production" ? "none" : "lax",
-      maxAge: config.jwt.refreshMaxAge * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
-
-    const result: any = {
-      token: accessToken,
-      refreshToken,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        avatar: user.image,
+    return new ApiResponse(
+      200,
+      {
+        seller,
       },
-    };
-
-    return new ApiResponse(200, result, "Login complete");
+      "Seller profile fetched successfully.",
+    );
   },
 };

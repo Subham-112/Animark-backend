@@ -1,56 +1,52 @@
 import { Request, Router } from "express";
-import { login, register, verifyEmail } from "./seller.controller";
+
+import {
+  apply,
+  getCurrentSeller,
+  getPublicProfile,
+  updateProfile,
+} from "./seller.controller";
+
 import { authenticateToken, authorize } from "../../middleware/authMiddleware";
+
 import { uploadImage } from "../../middleware/upload.middleware";
 import { getAuthUser } from "../../utils/AuthUser";
 
 const router = Router();
 
 /**
- * Public Routes
- */
-router.post("/register", register);
-router.post("/login", login);
-// router.post("/resend-otp", );
-router.post("/verify-email", verifyEmail);
-// router.post("/forgot-password", );
-// router.post(
-//   "/verify-forgot-password-otp",
-
-// );
-// router.post("/reset-password", );
-// router.post("/refresh-token", );
-
-/**
  * Protected Routes
  */
 const userAccess = [authenticateToken, authorize("user")];
 
-// router.patch(
-//   "/profile",
-//   ...userAccess,
-//   uploadImage({
-//     folder: (req: Request) => {
-//       const authUser = getAuthUser(req);
-//       return `user/avatar/${authUser._id}`;
-//     },
-//   }),
-//   updateProfile,
-// );
+/**
+ * Apply to become Seller
+ */
+router.post("/apply", ...userAccess, apply);
 
-// router.post(
-//   "/logout",
-//   ...userAccess,
+/**
+ * Get Current Seller
+ */
+router.get("/get-current", ...userAccess, getCurrentSeller);
 
-// );
+/**
+ * Update Seller Profile
+ */
+router.patch(
+  "/profile",
+  ...userAccess,
+  uploadImage({
+    folder: (req: Request) => {
+      const authUser = getAuthUser(req);
+      return `seller/profile/${authUser._id}`;
+    },
+  }),
+  updateProfile,
+);
 
-// router.get(
-//   "/me",
-//   ...userAccess,
-
-// );
-
-// Example
-// router.get("/profile", userAccess, AuthController.getProfile);
+/**
+ * Public Seller Profile
+ */
+router.get("/:slug", getPublicProfile);
 
 export default router;
