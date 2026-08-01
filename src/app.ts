@@ -7,11 +7,13 @@ import { config } from "./config/config";
 import { corsOptions } from "./middleware/corsMiddleware";
 import apiRoutes from "./routes/index";
 import { globalErrorHandler } from "./middleware/errorHandler";
+import cookieParser from "cookie-parser";
 
 export const app = express();
 app.use(ipBlocker);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 if (config.cors.enabled) app.use(cors(corsOptions));
 else console.log("⚠️  CORS is disabled by config");
@@ -19,6 +21,15 @@ else console.log("⚠️  CORS is disabled by config");
 app.use(
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const startTime = process.hrtime();
+
+    // Save original json method
+    const originalJson = res.json.bind(res);
+
+    // Capture response body
+    res.json = (body: any) => {
+      res.locals.responseBody = body;
+      return originalJson(body);
+    };
 
     res.on("finish", () => {
       const diff = process.hrtime(startTime);
@@ -32,14 +43,17 @@ app.use(
         return colors.white(`${res.statusCode}`);
       };
 
+      const message = res.locals.responseBody?.message;
+
       logger.info(
-        `${"METHOD:".blue} ${req.method.yellow} - ${"URL:".blue} ${
-          req.originalUrl.yellow
-        } - ${"STATUS:".blue} ${fetchStatus()} - ${"Response Time:".blue} ${
-          responseTime.magenta
-        } ${"ms".magenta}`,
+        `${"METHOD:".blue} ${req.method.yellow} - ` +
+          `${"URL:".blue} ${req.originalUrl.yellow} - ` +
+          `${"STATUS:".blue} ${fetchStatus()} - ` +
+          `${"MESSAGE:".blue} ${(message ?? "-").white} - ` +
+          `${"Response Time:".blue} ${responseTime.magenta} ${"ms".magenta}`,
       );
     });
+
     next();
   },
 );
