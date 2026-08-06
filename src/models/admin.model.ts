@@ -37,7 +37,6 @@ const adminSchema = new Schema<IAdmin>(
     role: {
       ref: "Role",
       index: true,
-      required: true,
       type: mongoose.Schema.Types.ObjectId,
     },
   },
