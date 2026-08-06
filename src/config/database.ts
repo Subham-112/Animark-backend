@@ -4,17 +4,17 @@ import { logger } from "./logger";
 
 let isConnected = false;
 
-const connectDB = async (): Promise<void> => {
+const dbUrl = config.db.url
+const dbName = config.db.name;
+const connectionUrl = `${dbUrl}/${dbName}`;
+
+export const connectDB = async (): Promise<void> => {
   try {
     // Reuse existing connection
     if (isConnected) {
       logger.info("✅ Using existing MongoDB connection");
       return;
     }
-
-    const dbUrl = config.db.url
-    const dbName = config.db.name;
-    const connectionUrl = `${dbUrl}/${dbName}`;
 
     if (!connectionUrl) {
       throw new Error("MONGODB_URI is not defined in .env");
@@ -54,4 +54,22 @@ const connectDB = async (): Promise<void> => {
   }
 };
 
-export default connectDB;
+export const Mongoose = {
+  connect: async () => {
+    try {
+      await mongoose.connect(connectionUrl);
+      console.log("✅ Connected to DB");
+    } catch (err) {
+      console.error("❌ Can't connect to DB", err);
+      throw err;
+    }
+  },
+  disConnect: async () => {
+    try {
+      await mongoose.disconnect();
+      console.log("✅ Disconnected");
+    } catch (err) {
+      console.error("❌ Can't disconnect from DB", err);
+    }
+  },
+};
