@@ -1,11 +1,9 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 import { ProductOwnerType, CommonStatus } from "../common/enum";
 import { IImage, ImageSchema } from "../common/image.schema";
-import {
-  ISoftDeleteDocument,
-  ISoftDeleteModel,
-} from "../types/softDelete.types";
+import { ISoftDeleteDocument, ISoftDeleteModel } from "../types/softDelete.types";
 import MongooseDelete from "mongoose-delete";
+import "./category.model";
 
 interface IRating {
   avgRating: number;
@@ -34,7 +32,7 @@ interface IProduct extends Document, ISoftDeleteDocument {
 const RatingSchema = new Schema<IRating>({
   avgRating: { type: Number },
   totalReviews: { type: Number },
-});
+}, { _id: false });
 
 const ProductSchema = new Schema<IProduct>(
   {
@@ -98,11 +96,6 @@ const ProductSchema = new Schema<IProduct>(
 /**
  * Indexes
  */
-ProductSchema.index({ slug: 1 }, { unique: true });
-ProductSchema.index({ category: 1 });
-ProductSchema.index({ owner: 1 });
-ProductSchema.index({ ownerType: 1 });
-ProductSchema.index({ status: 1 });
 ProductSchema.index({ tags: 1 });
 
 ProductSchema.plugin(MongooseDelete, {
