@@ -84,3 +84,11 @@ export enum LicenceType {
   PERSONAL = "personal",
   COMMERCIAL = "commercial"
 }
+
+export enum OrderStatus {
+  PENDING = "pending",
+  PROCESSING = "processing",
+  COMPLETED = "completed",
+  CANCELLED = "cancelled",
+  REFUNDED = "refunded",
+}

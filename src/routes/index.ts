@@ -4,6 +4,7 @@ import sellerRoutes from "../modules/seller/seller.router";
 import productRoutes from "../modules/product/product.routes";
 import categoryRoutes from "../modules/category/category.routes";
 import adminRoutes from "../modules/admin/admin.routes";
+import orderRoutes from "../modules/order/order.routes";
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use("/sellers", sellerRoutes);
 router.use("/products", productRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/admin", adminRoutes);
+router.use("/orders", orderRoutes);
 
 export default router;

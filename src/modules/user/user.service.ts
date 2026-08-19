@@ -135,11 +135,13 @@ export const UserService = {
     user.lastLoginAt = new Date();
     await user.save();
 
+    const cookieMaxAgeMs = config.jwt.accessMaxAge * 24 * 60 * 60 * 1000;
+
     res.cookie(CookiesNames.USER_ACCESS, accessToken, {
       httpOnly: true,
       secure: config.env === "production",
       sameSite: config.env === "production" ? "none" : "lax",
-      maxAge: config.jwt.accessMaxAge * 24 * 60 * 1000,
+      maxAge: cookieMaxAgeMs,
       path: "/",
     });
 
